@@ -2755,7 +2755,58 @@ document.getElementById('lockerBack').addEventListener('pointerdown',e=>{
 });
 document.getElementById('modeSolo').addEventListener('pointerdown',e=>{e.preventDefault();showSolo();});
 document.getElementById('modeParty').addEventListener('pointerdown',e=>{e.preventDefault();if(!playerName){pendingParty=true;showName();}else showParty();});
-document.getElementById('modeLily').addEventListener('pointerdown', e => { e.preventDefault(); window.location.href = 'https://utters-apps.github.io/Frog-Rush/multiplayer.html'; });
+document.getElementById('modeLily').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  // Inject the multiplayer page as a full-page iframe inside the current document
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frog Rush Multiplayer</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+        .unclickable-overlay {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 150px;
+            height: 50px;
+            background-color: transparent;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <iframe src="https://frog-rush-multiplayer--ferutter.on.websim.com" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>
+        <div class="unclickable-overlay"></div>
+    </div>
+</body>
+</html>`;
+  // replace the current document with the multiplayer container
+  document.open();
+  document.write(html);
+  document.close();
+});
 document.getElementById('modeLucky').addEventListener('pointerdown',e=>{e.preventDefault();partyLucky=true;startGame('party');});
 document.getElementById('modeClassic').addEventListener('pointerdown',e=>{e.preventDefault();partyLucky=false;startGame('party');});
 document.getElementById('modeSoloZen').addEventListener('pointerdown',e=>{e.preventDefault();startGame('solo','safe');});
