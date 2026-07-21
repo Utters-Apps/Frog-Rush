@@ -2755,7 +2755,7 @@ document.getElementById('lockerBack').addEventListener('pointerdown',e=>{
 });
 document.getElementById('modeSolo').addEventListener('pointerdown',e=>{e.preventDefault();showSolo();});
 document.getElementById('modeParty').addEventListener('pointerdown',e=>{e.preventDefault();if(!playerName){pendingParty=true;showName();}else showParty();});
-document.getElementById('modeLily').addEventListener('pointerdown', e => { e.preventDefault(); window.location.href = 'https://exemple.com'; });
+document.getElementById('modeLily').addEventListener('pointerdown', e => { e.preventDefault(); window.location.href = 'https://utters-apps.github.io/Frog-Rush/multiplayer.html'; });
 document.getElementById('modeLucky').addEventListener('pointerdown',e=>{e.preventDefault();partyLucky=true;startGame('party');});
 document.getElementById('modeClassic').addEventListener('pointerdown',e=>{e.preventDefault();partyLucky=false;startGame('party');});
 document.getElementById('modeSoloZen').addEventListener('pointerdown',e=>{e.preventDefault();startGame('solo','safe');});
@@ -6042,5 +6042,4 @@ started=true;
 requestAnimationFrame(loop);
 </script>
 
-</body>
-</html>
+</body></html>
