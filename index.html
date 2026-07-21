@@ -2495,18 +2495,24 @@ function findGrabHook(f,exAX,exAY,chain){
 }
 function grabHook(f,h){
   const dx=h.x-f.x, dy=h.y-f.y;
-  f.anchorX=h.x; f.anchorY=h.y;
+  // anchor directly to the hook's current world coords (important for moving hooks/carriages)
+  f.anchorX = h.x;
+  f.anchorY = h.y;
+  // also pin the visible tongue tip to the flower/hook position immediately so the tongue "sticks"
+  f.tipX = h.x;
+  f.tipY = h.y;
+
   // shorten the max rope length so hooks feel punchy but less exaggerated
-  f.ropeLen=clamp(Math.hypot(dx,dy),24,54);
-  if(h.moving){ f.carriage=h; h.carrier=f; h.dir=1; f.ropeLen=clamp(Math.hypot(dx,dy),28,44); }
-  const a=Math.atan2(f.x-h.x, f.y-h.y);
-  f.ang=a;
+  f.ropeLen = clamp(Math.hypot(dx,dy), 24, 54);
+  if(h.moving){ f.carriage = h; h.carrier = f; h.dir = 1; f.ropeLen = clamp(Math.hypot(dx,dy), 28, 44); }
+  const a = Math.atan2(f.x - h.x, f.y - h.y);
+  f.ang = a;
   // reduce immediate angular impulse to make launch arcs more controlled
-  f.angVel=(f.vx*Math.cos(a)-f.vy*Math.sin(a))/Math.max(1,f.ropeLen*0.9);
-  if(f.angVel<0.04)f.angVel=0.04+Math.random()*0.015;
-  f.angVel=clamp(f.angVel,-0.22,0.22);
-  f.state='swing'; f.swingT=0; f.tongue=1; f.launch=false;
-  if(f===frog){sfx.grab();addParts(h.x,h.y,8,'#e2607f',1.9);f.squash=0.86;shMag=Math.max(shMag,1.2);}
+  f.angVel = (f.vx * Math.cos(a) - f.vy * Math.sin(a)) / Math.max(1, f.ropeLen * 0.9);
+  if(f.angVel < 0.04) f.angVel = 0.04 + Math.random() * 0.015;
+  f.angVel = clamp(f.angVel, -0.22, 0.22);
+  f.state = 'swing'; f.swingT = 0; f.tongue = 1; f.launch = false;
+  if(f === frog){ sfx.grab(); addParts(h.x, h.y, 8, '#e2607f', 1.9); f.squash = 0.86; shMag = Math.max(shMag, 1.2); }
 }
 function nearestBug(f){
   let best=null,bd=1e9;
@@ -2584,10 +2590,10 @@ window.addEventListener('keydown', e => {
   // ignore auto-repeats for single-press actions
   if (e.repeat) return;
 
-  // Pause / Exit mapped to P (and Escape still falls back)
+  // Pause / Exit mapped to P and Escape; P will pause in Solo and exit in Party (Escape also exits)
   if ((code === 'KeyP' || code === 'Escape') && !menuMode && !gameOver) {
     if (mode === 'solo') togglePause();
-    else if (mode === 'party' && code === 'Escape') backToMenu();
+    else if (mode === 'party') backToMenu();
     return;
   }
   if (paused) return;
@@ -5913,25 +5919,7 @@ function updateActBtn(){
   actBtnEl.classList.remove('pop'); void actBtnEl.offsetWidth; actBtnEl.classList.add('pop');
 }
 
-function drawFraming(){
-  // Full-height side vignettes so the dark edges reach the top and bottom of the viewport
-  const edge = cssW * 0.055;
-  // left gradient: strong near the edge fading inward
-  const gl = ctx.createLinearGradient(0, 0, edge, 0);
-  gl.addColorStop(0, 'rgba(6,12,16,0.72)');
-  gl.addColorStop(0.55, 'rgba(6,12,16,0.36)');
-  gl.addColorStop(1, 'rgba(6,12,16,0)');
-  ctx.fillStyle = gl;
-  ctx.fillRect(0, 0, edge, cssH);
-
-  // right gradient: mirror of left
-  const gr = ctx.createLinearGradient(cssW, 0, cssW - edge, 0);
-  gr.addColorStop(0, 'rgba(6,12,16,0.72)');
-  gr.addColorStop(0.55, 'rgba(6,12,16,0.36)');
-  gr.addColorStop(1, 'rgba(6,12,16,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(cssW - edge, 0, edge, cssH);
-}
+function drawFraming(){}
 
 //========================= HUD UPDATE =========================
 const distV=document.getElementById('distV'),coinV=document.getElementById('coinV'),bestV=document.getElementById('bestV'),coinIco=document.getElementById('coinIco');
@@ -6091,6 +6079,125 @@ resetRun();
 // idle demo: frog runs on its own even before input (auto-runner). start immediately.
 started=true;
 requestAnimationFrame(loop);
+
+// --- UX / Navigation / Gesture hardening ----------------------------------
+// Prevent common browser gestures and defaults that break the game experience.
+(function(){
+  // Strong CSS overrides to disable text selection, touch callout, focus outlines, and elastic overscroll.
+  try{
+    const s = document.createElement('style');
+    s.id = 'game-ux-blockers';
+    s.textContent = `
+      html,body{ -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color: rgba(0,0,0,0); }
+      canvas#c, body { overscroll-behavior: none !important; }
+      *:focus{ outline: none !important; box-shadow: none !important; }
+      button, input { -webkit-appearance: none; }
+      ::selection { background: transparent !important; }
+    `;
+    document.head.appendChild(s);
+  }catch(e){}
+
+  // Prevent pinch-to-zoom / double-tap zoom by blocking gesturestart and wheel+ctrl
+  window.addEventListener('gesturestart', e => { e.preventDefault(); }, { passive:false });
+  window.addEventListener('wheel', e => { if(e.ctrlKey) e.preventDefault(); }, { passive:false });
+  // Prevent double-click selecting text
+  document.addEventListener('dblclick', e => { e.preventDefault(); }, { passive:false });
+
+  // Disable context menu
+  document.addEventListener('contextmenu', e => { e.preventDefault(); }, { passive:false });
+
+  // Disable drag/drop of files and images onto the page
+  window.addEventListener('dragover', e => { e.preventDefault(); }, { passive:false });
+  window.addEventListener('drop', e => { e.preventDefault(); }, { passive:false });
+  document.addEventListener('dragstart', e => { e.preventDefault(); }, { passive:false });
+
+  // Prevent selectionstart (long-press selection on mobile)
+  document.addEventListener('selectstart', e => { e.preventDefault(); }, { passive:false });
+
+  // Prevent browser navigation gestures from edge swipes where possible
+  // (best-effort: cancel touchmove when at top/bottom to reduce pull-to-refresh/bounce)
+  let lastTouchY = 0;
+  document.addEventListener('touchstart', e => {
+    if(e.touches && e.touches[0]) lastTouchY = e.touches[0].clientY;
+  }, { passive:false });
+  document.addEventListener('touchmove', e => {
+    // If single-touch and vertical move near top/bottom, prevent default to stop pull-to-refresh / bounce
+    if(e.touches && e.touches.length === 1){
+      const touchY = e.touches[0].clientY;
+      const dy = touchY - lastTouchY;
+      const sc = document.scrollingElement || document.documentElement;
+      // If trying to scroll up at top or scroll down at bottom, block it
+      if((sc.scrollTop === 0 && dy > 0) || (sc.scrollTop + sc.clientHeight >= sc.scrollHeight && dy < 0)){
+        e.preventDefault();
+      }
+    }
+  }, { passive:false });
+
+  // Prevent Back/Forward navigation via swipe/back keys where possible
+  window.addEventListener('popstate', e => { // best-effort: push state back so history nav is a no-op during play
+    try{ history.pushState(null, document.title, location.href); }catch(err){}
+  });
+  try{ history.pushState(null, document.title, location.href); }catch(e){}
+
+  // Prevent common navigation keys from performing browser actions while the canvas is focused
+  const navKeys = new Set(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','PageUp','PageDown','Home','End','BrowserBack','BrowserForward']);
+  window.addEventListener('keydown', (e) => {
+    // allow inputs when typing
+    if(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+    if(navKeys.has(e.code) || navKeys.has(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  }, { passive:false });
+
+  // Keep focus on the canvas: when anything tries to blur, refocus canvas quickly.
+  const cvEl = document.getElementById('c');
+  if(cvEl){
+    // Ensure canvas is focusable
+    cvEl.setAttribute('tabindex','0');
+    // Prevent focus leaving canvas via mouse/touch when gameplay active
+    document.addEventListener('mousedown', (e) => {
+      if(menuMode) return; // allow normal UI interactions in menus
+      if(e.target !== cvEl){
+        e.preventDefault(); e.stopPropagation();
+        try{ cvEl.focus({preventScroll:true}); }catch(e){ cvEl.focus(); }
+      }
+    }, { passive:false });
+    // Also for touch
+    document.addEventListener('touchstart', (e) => {
+      if(menuMode) return;
+      if(e.target !== cvEl){
+        e.preventDefault(); e.stopPropagation();
+        try{ cvEl.focus({preventScroll:true}); }catch(e){ cvEl.focus(); }
+      }
+    }, { passive:false });
+
+    // Refocus canvas if window blurred/focused to avoid accidental focus changes
+    window.addEventListener('blur', ()=>{ try{ if(document.activeElement !== cvEl) cvEl.focus({preventScroll:true}); }catch(e){} });
+    window.addEventListener('focus', ()=>{ try{ if(document.activeElement !== cvEl) cvEl.focus({preventScroll:true}); }catch(e){} });
+  }
+
+  // Disable long-press native action menus on touch (copy/paste)
+  document.addEventListener('touchend', function noop(e){
+    // stop propagation of contextmenu that some mobile browsers fire after long-press
+    setTimeout(()=>{ document.removeEventListener('contextmenu', preventCM, true); }, 50);
+  }, { passive:true });
+
+  function preventCM(ev){ ev.preventDefault(); }
+  document.addEventListener('contextmenu', preventCM, true);
+
+  // Prevent default focus outlines on mouse navigation but preserve keyboard a11y: if user tabs, we keep outline.
+  (function(){
+    const style = document.createElement('style');
+    style.textContent = 'button:focus, input:focus, canvas:focus { outline: none !important; } body.keyboard-focus *:focus{ outline: auto !important; }';
+    document.head.appendChild(style);
+    // Toggle body.keyboard-focus when Tab is pressed to allow keyboard users to see focus outlines.
+    window.addEventListener('keydown', (e)=>{ if(e.key === 'Tab'){ document.body.classList.add('keyboard-focus'); } }, { passive:true });
+    window.addEventListener('mousedown', ()=>{ document.body.classList.remove('keyboard-focus'); }, { passive:true });
+  })();
+
+})();
 </script>
 
 </body></html>
