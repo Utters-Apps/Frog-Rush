@@ -13,15 +13,32 @@
             overflow: hidden;
             background: #000;
         }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
         iframe {
             width: 100%;
             height: 100%;
             border: none;
             display: block;
         }
+        .unclickable-overlay {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 150px;
+            height: 50px;
+            background-color: #000;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
-    <iframe src="https://frog-rush-multiplayer--ferutter.on.websim.com" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>
+    <div class="container">
+        <iframe src="https://frog-rush-multiplayer--ferutter.on.websim.com" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>
+        <div class="unclickable-overlay"></div>
+    </div>
 </body>
 </html>
