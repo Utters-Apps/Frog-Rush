@@ -1442,7 +1442,21 @@ const BIOMES=[
  water:'#2a5a6a',waterHi:'#5fa8b8',
  platTop:'#cf9058',platMid:'#9a5f34',platDark:'#6a3f24',platEdge:'#442814',
  soil:'#8a5230',soilDark:'#5e381e',soilEdge:'#3c2210',
- deco1:'#d8a860',deco2:'#8ea04a',mote:'#ffdca0',crit:'bird'}
+ deco1:'#d8a860',deco2:'#8ea04a',mote:'#ffdca0',crit:'bird'},
+{name:'MUSHROOM KINGDOM',accentText:'#e0a0ff',
+ skyTop:'#241640',skyMid:'#5a3f8a',skyBot:'#bfa0e6',sun:'#ffe6ff',
+ far1:'#33244f',far2:'#4f3878',far3:'#7a54a8',
+ water:'#382a6a',waterHi:'#a070d8',
+ platTop:'#9ce8d6',platMid:'#54b0a2',platDark:'#357a6e',platEdge:'#204a44',
+ soil:'#5f4478',soilDark:'#402c58',soilEdge:'#2a1c3c',
+ deco1:'#ff90d0',deco2:'#8ff0e0',mote:'#e0b0ff',crit:'butterfly'},
+{name:'VOLCANO',accentText:'#ff8a3a',
+ skyTop:'#280d12',skyMid:'#7a2a1c',skyBot:'#e2702a',sun:'#ffce68',
+ far1:'#361216',far2:'#5c2016',far3:'#8c3418',
+ water:'#e0400a',waterHi:'#ffb030',
+ platTop:'#6e5c56',platMid:'#4c3e3a',platDark:'#2e2422',platEdge:'#180f0d',
+ soil:'#3a2824',soilDark:'#281a16',soilEdge:'#150b09',
+ deco1:'#ff6a2a',deco2:'#ffb030',mote:'#ff9a4a',crit:'bird'}
 ];
 const BIOME_LEN=4400, TRANS=650;
 function seg2biome(base){
@@ -3690,12 +3704,15 @@ function spawnAmbient(){
     else if(bi===2)amb.push({x,y:camY-12,vx:rnd(-0.4,0.4),vy:rnd(0.5,1.1),ph:rnd(6.28),k:'snow',bi});
     else if(bi===3||bi===5)amb.push({x,y:camY+rnd(visH*0.18,visH*0.7),vx:rnd(0.25,0.7),vy:rnd(-0.1,0.1),ph:rnd(6.28),k:'dust',bi});
     else if(bi===4)amb.push({x,y:camY-12,vx:rnd(-0.5,0.3),vy:rnd(0.32,0.7),ph:rnd(6.28),k:'petal',bi});
+    else if(bi===6)amb.push({x,y:camY+rnd(visH*0.2,visH*0.7),vx:rnd(-0.16,0.16),vy:rnd(-0.12,0.03),ph:rnd(6.28),k:'spore',bi});
+    else if(bi===7)amb.push({x,y:WATER_Y-rnd(0,12),vx:rnd(-0.22,0.22),vy:rnd(-0.9,-0.4),ph:rnd(6.28),k:'ember',bi});
     else amb.push({x,y:camY-12,vx:rnd(-0.6,0.2),vy:rnd(0.4,0.9),ph:rnd(6.28),k:'leaf',bi});
   }
 }
 function updateAmbient(){
   for(let i=amb.length-1;i>=0;i--){const a=amb[i];a.ph+=0.05;
-    if(a.k==='fly'){a.x+=a.vx+Math.sin(a.ph)*0.2;a.y+=a.vy+Math.cos(a.ph*0.7)*0.14;a.vy*=0.97;a.vy-=0.002;}
+    if(a.k==='fly'||a.k==='spore'){a.x+=a.vx+Math.sin(a.ph)*0.2;a.y+=a.vy+Math.cos(a.ph*0.7)*0.14;a.vy*=0.97;a.vy-=0.002;}
+    else if(a.k==='ember'){a.x+=a.vx+Math.sin(a.ph)*0.25;a.y+=a.vy;a.vy-=0.008;}
     else{a.x+=a.vx+Math.sin(a.ph)*0.3;a.y+=a.vy;}
     if(a.y>WATER_Y+2||a.x<camX-50||a.x>camX+visW+70||a.y<camY-46)amb.splice(i,1);
   }
@@ -3709,6 +3726,8 @@ function drawAmbient(){
     }else if(a.k==='snow'){ctx.globalAlpha=0.85;rect(a.x,a.y,2,2,'#f0f6ff');}
     else if(a.k==='dust'){ctx.globalAlpha=0.28+0.28*Math.sin(a.ph*2);rect(a.x,a.y,2,1,'#ffe6a0');}
     else if(a.k==='petal'){const sw=Math.sin(a.ph*1.5);ctx.globalAlpha=0.85;rect(a.x,a.y,2,2,sw>0?'#ffc0dd':'#ff9ec9');rect(a.x+(sw>0?1:-1),a.y,1,1,'#ffe0ee');}
+    else if(a.k==='spore'){const g=0.5+0.5*Math.sin(a.ph*2.2);ctx.globalAlpha=0.28+0.4*g;rect(a.x,a.y,2,2,'#e0b0ff');ctx.globalAlpha=0.5+0.4*g;rect(a.x,a.y,1,1,'#ffe0ff');}
+    else if(a.k==='ember'){const g=0.5+0.5*Math.sin(a.ph*3);ctx.globalAlpha=0.4+0.5*g;rect(a.x,a.y,2,2,g>0.5?'#ffd06a':'#ff6a2a');}
     else{ctx.globalAlpha=0.7;rect(a.x,a.y,2,2,BIOMES[a.bi].deco1);}
   }
   ctx.globalAlpha=1;
@@ -3720,7 +3739,9 @@ const HAZ=[
  {mt:'#a9c6e0',lo:'#6f92b8',hi:'#eafaff',hub:'#4f6f9a',core:'#7fd8ee',spk:'#ffffff',f1:'#eafaff',f2:'#a9dcff',f3:'#5fa8e0',fp:'#bfe8ff'},
  {mt:'#cf9e4a',lo:'#8a6528',hi:'#f7d888',hub:'#6e4d1c',core:'#ff6f4a',spk:'#fff7d8',f1:'#fff2a0',f2:'#ffb03a',f3:'#ff5a2a',fp:'#ff8a3a'},
  {mt:'#cf8aa8',lo:'#8a5878',hi:'#ffc0dd',hub:'#7a4568',core:'#ff7ab0',spk:'#ffe0ee',f1:'#fff0f6',f2:'#ffb0d8',f3:'#ff5a9a',fp:'#ff9ec9'},
- {mt:'#a86a3c',lo:'#5e381e',hi:'#e0a870',hub:'#4a2a14',core:'#e0704a',spk:'#ffe0b0',f1:'#fff2a0',f2:'#ffb03a',f3:'#ff5a2a',fp:'#ff8a3a'}
+ {mt:'#a86a3c',lo:'#5e381e',hi:'#e0a870',hub:'#4a2a14',core:'#e0704a',spk:'#ffe0b0',f1:'#fff2a0',f2:'#ffb03a',f3:'#ff5a2a',fp:'#ff8a3a'},
+ {mt:'#8a5fb0',lo:'#4a2f6e',hi:'#d0a0ff',hub:'#3a2a5e',core:'#ff90d0',spk:'#e0b0ff',f1:'#ffe0ff',f2:'#e0a0ff',f3:'#a060f0',fp:'#d0a0ff'},
+ {mt:'#5a4a46',lo:'#2e2422',hi:'#8a4a2a',hub:'#1a1210',core:'#ff5a1a',spk:'#ffd06a',f1:'#ffe07a',f2:'#ff8a2a',f3:'#ff3a0a',fp:'#ff7a2a'}
 ];
 function haz(b){return HAZ[b]||HAZ[0];}
 function drawSaw(hz){
@@ -3953,7 +3974,10 @@ function drawHazard(hz){
   else if(b===2){tip='#dff2ff';stem='#7fb8e0';shine='#ffffff';}  // ice crystals
   else if(b===3){tip='#ffe6a0';stem='#b07a30';shine='#fff7d8';}  // desert spines
   else if(b===4){tip='#ffc0dd';stem='#b06a90';shine='#ffe0ee';}   // cherry thorns
-  else{tip='#c8a06a';stem='#6e4128';shine='#ffe0b0';}             // canyon rock spikes
+  else{tip='#c8a06a';stem='#6e4128';shine='#ffe0b0';}             // canyon / mushroom / volcano
+  if(b===5){tip='#c8a06a';stem='#6e4128';shine='#ffe0b0';}         // canyon rock spikes
+  else if(b===6){tip='#e0b0ff';stem='#5a3f80';shine='#ffe0ff';}    // mushroom spores
+  else if(b===7){tip='#ffd06a';stem='#6e2e1a';shine='#ffe07a';}    // volcano obsidian
   if(b===2){ // jagged ice crystals
     for(let i=0;i<3;i++){const cxw=hz.x+2.5+i*4;
       const gx=(cxw-wcX)*ZOOM, gy0=(hz.y+hz.h-wcY)*ZOOM, gy1=(hz.y-1-wcY)*ZOOM;
@@ -3983,6 +4007,8 @@ const COS={
  scarf:{name:'Cozy Scarf',slot:'outfit',src:'biome'},
  bowtie:{name:'Hair Bow',slot:'hat',src:'biome'},
  bandana:{name:'Bandana',slot:'hat',src:'biome'},
+ mushcap:{name:'Toadstool Cap',slot:'hat',src:'biome'},
+ emberhorns:{name:'Ember Horns',slot:'hat',src:'biome'},
  tophat:{name:'Top Hat',slot:'hat',price:120},
  cowboy:{name:'Cowboy Hat',slot:'hat',price:160},
  wizard:{name:'Wizard Hat',slot:'hat',price:220},
@@ -4017,7 +4043,7 @@ let owned={leafcap:true};
 let equipped={hat:'',face:'',outfit:''};       // the player's OWN choices — persistent, never auto-touched
 let biomeTemp={hat:'',face:'',outfit:''};        // temporary biome accessory — display only, wiped on biome change
 // biome index -> one themed accessory shown ONLY while the player wears nothing of their own
-const BIOME_ACC=['leafcap','feather','beanie','shades','bowtie','bandana'];
+const BIOME_ACC=['leafcap','feather','beanie','shades','bowtie','bandana','mushcap','emberhorns'];
 function hasManualEquip(){
   // Treat any explicit player-equipped hat/face/outfit OR an equipped skin (other than the free default)
   // as manual customization so biomes won't auto-apply temporary accessories.
@@ -4075,6 +4101,8 @@ const COSDRAW={
  scarf(p){p(-5,5,10,3,'#2a80b0');p(-5,5,10,1,'#5ac0e0');p(-5,7,10,1,'#1f6a94');p(-5,2,3,4,'#3aa0d0');p(-5,2,3,1,'#5ac0e0');p(-4,3,1,3,'#7fd8ee');},
  bowtie(p){p(-5,13,4,4,'#d0343e');p(1,13,4,4,'#d0343e');p(-5,13,4,1,'#ff6b5f');p(1,13,4,1,'#ff6b5f');p(-5,16,4,1,'#9a1c26');p(1,16,4,1,'#9a1c26');p(-1,14,2,3,'#e0483f');p(-1,14,2,1,'#ff8a80');},
  bandana(p){p(-5,11,10,3,'#b23a2e');p(-5,11,10,1,'#e0604a');p(-5,13,10,1,'#7a241a');p(-3,12,1,1,'#f4e0c0');p(0,12,1,1,'#f4e0c0');p(3,12,1,1,'#f4e0c0');p(4,11,3,3,'#8a2a1e');p(4,11,3,1,'#b23a2e');p(6,10,1,5,'#8a2a1e');p(5,13,2,3,'#9a2f22');},
+ mushcap(p){const cap='#e0483f',lit='#ff6b5f',rim='#b02f2a',spot='#fff0ea',stem='#efe6d4';p(-2,12,4,3,stem);p(-2,12,1,3,'#fffaf0');p(-6,14,12,2,rim);p(-5,15,10,2,cap);p(-4,17,8,2,cap);p(-3,19,6,1,lit);p(-5,15,10,1,lit);p(-3,16,2,2,spot);p(2,16,2,2,spot);p(-1,18,2,1,spot);},
+ emberhorns(p){const rock='#3a2824',lit='#5a3f38',lava='#ff6a2a',glow='#ffd06a';p(-5,12,10,2,rock);p(-5,12,10,1,lit);p(-5,13,10,1,'#ff5a1a');p(-5,14,3,2,rock);p(-6,16,3,2,rock);p(-6,18,2,2,rock);p(-5,14,1,6,lit);p(-5,15,1,1,lava);p(-6,17,1,1,glow);p(2,14,3,2,rock);p(3,16,3,2,rock);p(4,18,2,2,rock);p(4,14,1,6,lit);p(4,15,1,1,lava);p(5,17,1,1,glow);},
  flowercrown(p){p(-5,12,10,2,'#4fae3f');p(-5,12,10,1,'#7fbf4a');p(-5,14,10,1,'#3f8a34');p(-5,13,2,2,'#ff6f9a');p(-1,14,2,2,'#ffd447');p(3,13,2,2,'#7fb0ff');p(-5,13,1,1,'#ffb0d8');p(4,14,1,1,'#fff0a0');p(-1,14,1,1,'#fff8d0');},
  propeller(p){p(-4,12,8,3,'#3aa0d0');p(-4,12,8,1,'#7fd8ee');p(-4,14,8,1,'#1c7a9a');p(-1,15,2,3,'#ffd447');p(-6,16,4,1,'#e0483f');p(2,16,4,1,'#e0483f');p(-6,16,2,1,'#ff8a80');p(3,16,2,1,'#ff8a80');},
  halo(p){p(-4,20,8,1,'#ffd447');p(-4,21,8,1,'#fff0a0');p(-4,20,1,2,'#fff8d0');p(3,20,1,2,'#fff8d0');},
@@ -4783,9 +4811,21 @@ function drawBackProps(){
     bgLayer(0.13,240,(sx,r,i)=>{if(hash1(i*3.7)<0.5)drawPagoda(sx,horizonY+8*ZOOM,r,mix(B.far1,'#8a4f78',0.3));});
     bgLayer(0.2,132,(sx,r)=>drawCherryTree(sx,horizonY+7*ZOOM,r,1.2+r*0.6,mix(B.far1,'#c07a9a',0.35)));
     bgLayer(0.4,94,(sx,r)=>drawCherryTree(sx,horizonY+10*ZOOM,r,0.76+r*0.5,mix(B.far2,'#ffb0d8',0.28)));
-  }else{ // ROCKY CANYON — layered mesas, buttes & distant spires
+  }else if(bi===5){ // ROCKY CANYON — layered mesas, buttes & distant spires
     bgLayer(0.14,210,(sx,r,i)=>{const k=hash1(i*4.3);if(k<0.5)drawMesa(sx,horizonY+9*ZOOM,r,mix(B.far1,'#5a3228',0.18));else drawButte(sx,horizonY+9*ZOOM,r,mix(B.far1,'#6e3e2e',0.14));});
     bgLayer(0.34,124,(sx,r,i)=>{const k=hash1(i*5.7);if(k<0.42)drawSpire(sx,horizonY+11*ZOOM,r,mix(B.far2,'#8a4a34',0.2));else drawButte(sx,horizonY+11*ZOOM,r*0.7,B.far2);});
+    drawHeatHaze(horizonY);
+  }else if(bi===6){ // MUSHROOM KINGDOM — giant glowing toadstools over a misty sea
+    drawMushMist(horizonY);
+    bgLayer(0.12,230,(sx,r)=>drawGiantMushroom(sx,horizonY+6*ZOOM,r,1.7+r*0.8,true));
+    bgLayer(0.2,150,(sx,r)=>drawGiantMushroom(sx,horizonY+8*ZOOM,r,1.2+r*0.7,true));
+    bgLayer(0.4,102,(sx,r)=>drawGiantMushroom(sx,horizonY+11*ZOOM,r,0.7+r*0.5,false));
+    bgLayer(0.6,118,(sx,r)=>drawGiantMushroom(sx,horizonY+13*ZOOM,r,0.42+r*0.3,false));
+  }else{ // VOLCANO — smoking volcanoes over a lava sea
+    bgLayer(0.1,268,(sx,r)=>drawVolcano(sx,horizonY+7*ZOOM,r*1.3));
+    bgLayer(0.16,196,(sx,r)=>drawVolcano(sx,horizonY+9*ZOOM,r));
+    bgLayer(0.4,124,(sx,r)=>drawVolcano(sx,horizonY+11*ZOOM,r*0.7));
+    bgLayer(0.62,150,(sx,r)=>drawVolcano(sx,horizonY+13*ZOOM,r*0.5));
     drawHeatHaze(horizonY);
   }
 }
@@ -5070,6 +5110,74 @@ function drawMist(horizonY){
   }
   ctx.globalAlpha=1;
 }
+function drawMushMist(horizonY){
+  for(let i=0;i<4;i++){
+    const yy=horizonY-i*13*ZOOM-5*ZOOM;
+    ctx.globalAlpha=0.13-i*0.015;
+    ctx.fillStyle=i%2?'#c0a0e0':'#9a70c0';
+    ctx.fillRect(0,Math.round(yy),cssW,Math.round(7*ZOOM));
+  }
+  ctx.globalAlpha=1;
+}
+// A giant, colourful, softly-glowing toadstool for the Mushroom Kingdom skyline.
+function drawGiantMushroom(sx,baseY,r,s,glow){
+  const Z=ZOOM;
+  const stemH=(38+r*46)*s*Z*0.5;
+  const stemW=Math.max(3,(8+r*5)*s*Z*0.36);
+  const step=Math.max(3,Math.round(Z*1.7));
+  srect(sx-stemW/2,baseY-stemH,stemW,stemH,mix('#e8e0f0','#9a8ab0',0.35));
+  srect(sx-stemW/2,baseY-stemH,Math.max(1,stemW*0.4),stemH,'#f4eeff');
+  const caps=[['#ff5a8a','#ff9ec9','#c02f5a'],['#5fd0e0','#a0f0ff','#2f8a9a'],['#ffb030','#ffe07a','#c07a10'],['#a060f0','#d0a0ff','#6a2fb0'],['#5fe0a0','#a0ffd0','#2f9a68']];
+  const c=caps[Math.floor(hash1(r*17.3)*caps.length)%caps.length];
+  const cy=baseY-stemH, cw=(24+r*20)*s*Z*0.5;
+  for(let yy=-cw*0.72;yy<=0;yy+=step){
+    const xx=cw*Math.sqrt(Math.max(0,1-(yy*yy)/(cw*cw*0.52)));
+    srect(sx-xx,cy+yy,xx*2,step,c[0]);
+  }
+  pxEllipse(sx-cw*0.3,cy-cw*0.42,cw*0.34,cw*0.2,c[1],step);
+  for(let k=0;k<5;k++){const a=hash1(r*7.1+k*3.3);srect(sx+(a-0.5)*cw*1.3,cy-cw*0.15-a*cw*0.35,step,step,c[1]);}
+  srect(sx-cw,cy,cw*2,Math.max(1,step*0.6),c[2]);
+  if(glow){
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    const gv=0.28+0.12*Math.sin(T*0.0022+sx);
+    ctx.globalAlpha=0.16*gv;ctx.fillStyle=c[1];
+    ctx.beginPath();ctx.arc(sx,cy-cw*0.2,cw*0.95,0,7);ctx.fill();
+    ctx.restore();ctx.globalAlpha=1;
+  }
+}
+// A blocky volcano with a molten glowing crater, lava dribble and rising smoke.
+function drawVolcano(sx,baseY,r){
+  const Z=ZOOM,s=0.9+r*0.9;
+  const W=(30+r*26)*s*Z*0.5, H=(24+r*22)*s*Z*0.5;
+  const step=Math.max(3,Math.round(Z*1.7));
+  const col=mix('#3a1c14','#6e2e1a',r*0.6);
+  const lit=mix(col,'#9a4a2a',0.45);
+  const rows=Math.max(4,Math.round(H/step));
+  const topW=W*0.28;
+  for(let ry=0;ry<rows;ry++){
+    const t=ry/rows;
+    const yy=baseY-H+ry*step;
+    const halfw=Math.max(step,Math.round((topW+(W-topW)*t)/step)*step);
+    srect(sx-halfw,yy,halfw*2,step,col);
+    srect(sx-halfw,yy,halfw,step,lit);
+  }
+  const cy=baseY-H;
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  const gv=0.5+0.3*Math.sin(T*0.02+sx);
+  ctx.globalAlpha=0.38*gv;ctx.fillStyle='#ff7a2a';
+  ctx.beginPath();ctx.arc(sx,cy,topW*1.5,0,7);ctx.fill();
+  ctx.restore();ctx.globalAlpha=1;
+  srect(sx-topW,cy,topW*2,step,'#ff8a2a');
+  srect(sx-topW*0.6,cy,topW*1.2,Math.max(1,step*0.6),'#ffd06a');
+  srect(sx+topW*0.4,cy+step,Math.max(1,step*0.7),H*0.4,'#ff5a1a');
+  for(let k=0;k<3;k++){
+    const t=((T*0.008+k/3+hash1(sx*0.3+k))%1);
+    const py=cy-t*H*1.5;
+    ctx.globalAlpha=0.2*(1-t);
+    pxEllipse(sx+Math.sin(t*6+k)*W*0.22,py,(4+t*9)*Z*0.5,(3+t*7)*Z*0.5,'#5a4a46',step);
+  }
+  ctx.globalAlpha=1;
+}
 
 function drawWater(){
   const P=PAL;
@@ -5120,6 +5228,28 @@ function drawWater(){
         rect(lx-2,ly+2+bob,10,1,mix(PAL.waterHi,'#ffffff',0.3));
       }
     }
+  }
+  if(bi===7){ // VOLCANO — molten lava sea: glowing crust, rising droplets & bubbles
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    ctx.globalAlpha=0.4+0.25*Math.sin(T*0.06);
+    ctx.fillStyle='#ffb030';ctx.fillRect(0,y,cssW,Math.max(2,ZOOM*1.4));
+    ctx.restore();ctx.globalAlpha=1;
+    const startX=Math.floor((camX-40)/58)*58;
+    for(let wx=startX;wx<camX+visW+40;wx+=58){
+      const hh=hash1(wx*0.21);
+      const t=((T*0.011+hh)%1);
+      const dx=wx+hh*40, dyw=WATER_Y-t*28;
+      ctx.globalAlpha=clamp(1-t,0,1)*0.92;
+      const bw=2+(1-t)*2;
+      rect(dx,dyw,bw,bw,t<0.5?'#ffd06a':'#ff6a2a');
+    }
+    ctx.globalAlpha=1;
+    for(let wx=startX;wx<camX+visW+40;wx+=46){
+      const hh=hash1(wx*0.37+3.1);
+      const b=Math.sin(T*0.05+hh*8);
+      if(b>0.55){const bx=wx+hh*30;rect(bx,WATER_Y-b*2,4,3,'#ff8a2a');rect(bx+1,WATER_Y-b*2-1,2,1,'#ffd06a');}
+    }
+    ctx.globalAlpha=1;
   }
 }
 
@@ -5209,6 +5339,41 @@ function drawPlatform(p){
         rect(mx,p.y-5,2,5,'#d8e0c0');rect(mx-2,p.y-7,6,3,'#5ad0a0');rect(mx-1,p.y-8,4,2,'#8affc0');rect(mx,p.y-6,1,1,'#eaffe0');
         rect(mx+4,p.y-3,1,3,'#d8e0c0');rect(mx+3,p.y-5,3,2,'#5ad0a0');}
     }
+    if(p.biome===6&&p.w>40){
+      // glowing toadstool cluster — a Mushroom-Kingdom platform charm that
+      // stays small & tucked to the side so it never reads as the bounce-pad obstacle
+      const mh=hash1(p.x*0.71+2.1);
+      if(mh<0.6){const mx=p.x+6+mh*p.w*0.5;const gl=0.5+0.5*Math.sin(T*0.05+p.x);
+        const ggx=(mx-wcX)*ZOOM,ggy=(p.y-4-wcY)*ZOOM;
+        ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.16+0.16*gl;ctx.fillStyle='#e0a0ff';ctx.beginPath();ctx.arc(ggx,ggy,4*ZOOM,0,7);ctx.fill();ctx.restore();ctx.globalAlpha=1;
+        rect(mx,p.y-5,2,5,'#e8e0f0');rect(mx-2,p.y-7,6,3,'#ff5a8a');rect(mx-1,p.y-8,4,2,'#ff9ec9');rect(mx,p.y-6,1,1,'#ffe0ee');
+        rect(mx+4,p.y-3,1,3,'#e8e0f0');rect(mx+3,p.y-5,3,2,'#a060f0');rect(mx+3,p.y-6,3,1,'#d0a0ff');}
+      // a second tiny sprout on wider ledges for a lusher mushroom garden
+      const m2=hash1(p.x*0.47+9.3);
+      if(m2<0.4&&p.w>60){const sx2=p.x+p.w-12-m2*p.w*0.3;
+        rect(sx2,p.y-4,1,4,'#e8e0f0');rect(sx2-2,p.y-6,5,2,'#5fd0e0');rect(sx2-1,p.y-7,3,1,'#a0f0ff');}
+    }
+    if(p.biome===7&&p.w>36){
+      // glowing lava cracks seep across the obsidian platform surface
+      const gl=0.5+0.5*Math.sin(T*0.08+p.x*0.3);
+      ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.3+0.25*gl;
+      for(let i=6;i<p.w-4;i+=9){const hh=hash1((p.x+i)*1.7);if(hh<0.6)rect(p.x+i,p.y+1,3,1,hh<0.3?'#ff8a2a':'#ff5a1a');}
+      ctx.restore();ctx.globalAlpha=1;
+      // small basalt ember vent that puffs sparks up from the platform
+      const vh=hash1(p.x*0.61+5.7);
+      if(vh<0.45){const vx=p.x+6+vh*p.w*0.6;
+        rect(vx-2,p.y-3,5,3,'#2e2422');rect(vx-2,p.y-3,5,1,'#4c3e3a');rect(vx-1,p.y-2,3,1,'#ff5a1a');
+        const eg=0.5+0.5*Math.sin(T*0.1+p.x);
+        const egx=(vx-wcX)*ZOOM,egy=(p.y-3-wcY)*ZOOM;
+        ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.14+0.16*eg;ctx.fillStyle='#ff7a2a';ctx.beginPath();ctx.arc(egx,egy,4*ZOOM,0,7);ctx.fill();ctx.restore();ctx.globalAlpha=1;
+        if((T&7)===0&&parts.length<180)parts.push({x:vx,y:p.y-3,vx:rnd(-0.3,0.3),vy:-rnd(0.5,1.2),life:rnd(12,22),max:22,col:Math.random()<0.5?'#ffd06a':'#ff6a2a',g:-0.02,sz:1});
+      }
+      // small chunks of glowing obsidian crystal along the rock edge
+      const oh=hash1(p.x*0.83+2.7);
+      if(oh<0.5){const ox=p.x+p.w-8-oh*p.w*0.4;
+        rect(ox,p.y-4,2,4,'#241a18');rect(ox,p.y-4,1,4,'#4a3430');rect(ox,p.y-3,1,1,'#ff6a2a');
+        rect(ox+3,p.y-3,1,3,'#241a18');rect(ox+3,p.y-3,1,1,'#ff8a3a');}
+    }
   }
   if(p.type==='crumble'){
     rect(p.x+p.w*0.32,p.y,1,3,B.soilEdge);
@@ -5237,7 +5402,9 @@ function drawPlatform(p){
     else if(p.biome===2){cap='#7fb8e0';capHi='#c7e8ff';spot='#ffffff';stemC='#dceaf7';}
     else if(p.biome===3){cap='#d89a40';capHi='#f0c070';spot='#fff2c8';stemC='#e8d0a0';}
     else if(p.biome===4){cap='#ff7ab0';capHi='#ffb0d8';spot='#fff0f6';stemC='#f0d8e0';}
-    else{cap='#c88a5a';capHi='#e0a878';spot='#fff2c8';stemC='#d8c0a0';}
+    else if(p.biome===5){cap='#c88a5a';capHi='#e0a878';spot='#fff2c8';stemC='#d8c0a0';}
+    else if(p.biome===6){cap='#a060f0';capHi='#d0a0ff';spot='#ffe0ff';stemC='#e8e0f0';}
+    else{cap='#ff5a1a';capHi='#ff8a2a';spot='#ffd06a';stemC='#8a6a5a';}
     rect(mx+5,p.y-6,4,6,stemC);
     rect(mx,p.y-11,14,6,cap);
     rect(mx+1,p.y-12,12,2,capHi);
