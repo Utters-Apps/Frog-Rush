@@ -1493,7 +1493,7 @@ const GRAB_RANGE=72;
 function runSpeed(){return 1.72+clamp((frog?frog.x:0)/9500,0,1)*1.0;}
 
 //========================= LEVEL STATE =========================
-let platforms=[],hooks=[],coins=[],rings=[],critters=[],parts=[],hazards=[],amb=[],bugs=[],loot=[],fields=[],pits=[];
+let platforms=[],hooks=[],coins=[],rings=[],critters=[],parts=[],hazards=[],amb=[],bugs=[],loot=[],fields=[],pits=[],walls=[];
 const MAX_PARTS = 80; /* lower particle cap on mobile/embedded to reduce CPU/GPU work */
 let cursorX=0,cursorY=0,lastPick='',flatStreak=0,thornRun=0,fallRun=0,hazardRun=0,nextCP=700,forceSafe=0,nextArc=400;
 // small recent-hazard history so we can prevent 3 identical hazards in a row
@@ -1626,7 +1626,7 @@ function randomCosmetics(){
 }
 
 function resetRun(){
-  platforms.length=0;hooks.length=0;coins.length=0;rings.length=0;critters.length=0;parts.length=0;hazards.length=0;amb.length=0;bugs.length=0;loot.length=0;fields.length=0;pits.length=0;
+  platforms.length=0;hooks.length=0;coins.length=0;rings.length=0;critters.length=0;parts.length=0;hazards.length=0;amb.length=0;bugs.length=0;loot.length=0;fields.length=0;pits.length=0;walls.length=0;
   rivals.length=0;
   rescueTally={};rescued={};
   bOff=(mode==='party'&&!menuMode)?(Math.floor(Math.random()*BIOMES.length*3)+0.3)*BIOME_LEN:(menuMode?(Math.floor(Math.random()*BIOMES.length*3)+0.2)*BIOME_LEN:0);
@@ -1789,6 +1789,7 @@ function genNext(){
   if(cursorX>2000)opts.push(['sawrun',1.25]);
   if(cursorX>2400)opts.push(['pistons',1.2]);
   if(cursorX>1200)opts.push(['ramp',2.1]);
+  if(cursorX>1300)opts.push(['wall',1.7]);
   if(cursorX>2100)opts.push(['lily',1.4]);
   if(cursorX>2500)opts.push(['thorns',1.2]);
   if(cursorX>2800)opts.push(['crumble',1.4]);
@@ -2080,6 +2081,23 @@ function genNext(){
     cursorX+=g; cursorY=clamp(cursorY+(rnd()-0.5)*22,4,42);
     const w2=72+rnd(46); const landP={x:cursorX,y:cursorY,w:w2,type:'land',biome}; platforms.push(landP);
     gond.target=landP; cursorX+=w2;
+  }else if(pick==='wall'){
+    // TALL MOSSY WALL — leap the little chasm, cling to the far face, then MASH the
+    // SCRAMBLE button to claw your way up to the mossy ledge on top. Stop mashing and
+    // the frog slips down the face and drops into the water below.
+    const w=54+rnd(24); platforms.push({x:cursorX,y:cursorY,w,type:'land',biome}); cursorX+=w;
+    const gap=22+rnd(16); cursorX+=gap;
+    const wallH=62+rnd(24)+d*20;
+    const wx=cursorX, ww=20;
+    const baseY=cursorY+20;
+    const topY=clamp(cursorY-wallH,-64,4);
+    const wall={x:wx,w:ww,baseY,topY,biome,mossPh:rnd(6.28)};
+    walls.push(wall);
+    const topW=64+rnd(44);
+    const topPlat={x:wx,y:topY,w:Math.max(topW,ww+34),type:'land',biome};
+    platforms.push(topPlat); wall.topPlat=topPlat;
+    for(let i=1;i<=4;i++)coins.push({x:wx-8,y:lerp(baseY,topY,i/5),got:false,ph:rnd(6.28)});
+    cursorX=topPlat.x+topPlat.w; cursorY=topY;
   }
   if(mode==='party'&&partyLucky&&!menuMode&&cursorX>nextLoot){
     let host=null; for(let i=platforms.length-1;i>=0;i--){const hp=platforms[i]; if(hp.type==='land'&&hp.w>=42){host=hp;break;}}
@@ -2121,6 +2139,24 @@ const POWERS={
   flag:{ico:'C',glow:'#8ee06a',name:'CHECKPOINT'}
 };
 const POWER_KEYS=Object.keys(POWERS);
+
+// Speed-arc safety monitor: track recent player speed-arc use and deaths; can disable/remove speed arcs
+let speedArcMonitor = { lastUse:0, deathCount:0, disabled:false };
+function removeSpeedArcs(){
+  // remove ground loot tokens of type 'speed' and clear speed tokens from inventories/powerups
+  try{
+    // clear ground tokens
+    for(let i=loot.length-1;i>=0;i--) if(loot[i] && loot[i].type === 'speed') loot.splice(i,1);
+    // clear player/rival inventories and powerups
+    if(inventory && inventory.length) for(let i=inventory.length-1;i>=0;i--) if(inventory[i]==='speed') inventory.splice(i,1);
+    for(const r of rivals) if(r.powerups && r.powerups.length) for(let j=r.powerups.length-1;j>=0;j--) if(r.powerups[j]==='speed') r.powerups.splice(j,1);
+    // mark monitor disabled to avoid re-enabling quickly
+    speedArcMonitor.disabled = true;
+    // immediate visual/audio feedback
+    try{ addFloat(frog.x,frog.y-16,'SPEED REMOVED','#ff9a8a',true); sfx.count(false); }catch(e){}
+  }catch(e){}
+}
+
 function updatePowerBar(){
   const bar=document.getElementById('powerBar');
   if(bar)bar.style.display='none';
@@ -2177,6 +2213,12 @@ function applyPower(user,type){
   const all=[frog,...rivals];
   const who=(user===frog)?(frog.name||'YOU'):(user.name||'Frog');
   const pAnn=(mode==='party'&&!menuMode);
+
+  // If system disabled speed arcs completely, ignore attempts to use them
+  if(type==='speed' && speedArcMonitor && speedArcMonitor.disabled){
+    if(user===frog){ addFloat(user.x,user.y-16,'SPEED DISABLED','#ff9a8a',true); sfx.count(false); }
+    return;
+  }
   if(type==='speed'){
     user.hasteT=150; user.slowT=0; user.stunT=0; user.vx=Math.max(user.vx,runSpeed()*2.4);
     addParts(user.x,user.y-6,22,'#ffd447',3.4);
@@ -2282,6 +2324,7 @@ function doGrab(){
 function doAction(){
   if(menuMode)return;
   if(gameOver)return;
+  if(frog.state==='climb'){doScramble();return;}
   // When already swinging:
   // - on touch devices the action button should perform LET GO (release the swing),
   // - on non-touch (keyboard/desktop) it should try to GRAB (chain to next hook) as before.
@@ -2301,11 +2344,65 @@ function doAction(){
 }
 function doRoll(){
   const f=frog;
-  if(f.rolling)return;
+  if(!f.onRamp) return;      // Speed Roll só vale em cima da rampa
+  if(f.rolling) return;
   f.rolling=true; f.squash=1.25;
   addParts(f.x,f.y-4,16,'#c8f79a',2.8); addParts(f.x,f.y-4,8,'#ffffff',2.2);
   shMag=Math.max(shMag,2.6);
   sfx.whoosh(); beep(300,0.15,'sawtooth',0.4,520); beep(520,0.12,'square',0.28,0,0.05);
+}
+//========================= WALL SCRAMBLE (mash to climb) =========================
+const CLIMB_GRAV=0.092, CLIMB_PUSH=1.55, CLIMB_MAXUP=2.4, CLIMB_MAXDOWN=3.2;
+function scramblePush(f){
+  if(f.state!=='climb')return;
+  f.climbV=Math.min(CLIMB_MAXUP,(f.climbV||0)+CLIMB_PUSH);
+  f.scrambleFlash=7;
+  f.climbAnim=(f.climbAnim||0)+1.3;
+}
+function doScramble(){
+  if(gameOver||menuMode||!frog||frog.state!=='climb')return;
+  scramblePush(frog);
+  // wall-scrape sparks + stone dust from grip points
+  addParts(frog.x+2,frog.y-rnd(4,12),5,'#9ab4ff',2.2);
+  if(parts.length<210)for(let i=0;i<3;i++)parts.push({x:frog.x+rnd(1,7),y:frog.y-rnd(2,11),vx:rnd(-1.4,-0.3),vy:rnd(-0.6,0.2),life:rnd(8,14),max:14,col:'rgba(210,225,185,0.7)',g:0.09,sz:1});
+  sfx.step();
+  beep(560+clamp((frog.wall?(frog.wall.baseY-frog.y):0)*3,0,300),0.05,'square',0.3,120);
+  if(typeof actBtnEl!=='undefined'&&actBtnEl){actBtnEl.classList.remove('pop');void actBtnEl.offsetWidth;actBtnEl.classList.add('pop');}
+}
+function startClimb(f,wl){
+  f.state='climb'; f.wall=wl; f.onGround=false; f.launch=false; f.boost=0; f.tongue=0; f.onRamp=false; f.rolling=false;
+  f.climbV=Math.max(0,-(f.vy||0)*0.4);
+  f.x=wl.x-HALFW;
+  f.y=clamp(f.y,wl.topY+12,wl.baseY);
+  f.climbAnim=0; f.scrambleFlash=0; f.vx=0; f.vy=0;
+  if(f===frog){ sfx.grab(); addParts(f.x,f.y-6,10,'#7fe05a',2); shMag=Math.max(shMag,1.6); addFloat(f.x,f.y-16,'CLIMB!','#8fd0ff',true); }
+}
+function stepClimb(f,isPlayer){
+  const wl=f.wall;
+  if(!wl){ f.state='air'; return; }
+  if(f.ai||menuMode){ if((T%3)===0)scramblePush(f); }  // demo/AI climb themselves
+  f.climbV=(f.climbV||0)-CLIMB_GRAV;                     // gravity constantly drags down
+  if(Math.abs(f.climbV)<0.18)f.climbV*=0.78;             // brief grip friction near zero → tiny cling window before sliding
+  f.climbV=clamp(f.climbV,-CLIMB_MAXDOWN,CLIMB_MAXUP);
+  f.y-=f.climbV;                                          // +V climbs up, -V slides down
+  f.x=wl.x-HALFW;
+  if(f.scrambleFlash>0)f.scrambleFlash--;
+  f.climbAnim=(f.climbAnim||0)+0.2+Math.max(0,f.climbV)*0.35;
+  if(isPlayer&&f.climbV>0.25&&(T&2)===0&&parts.length<200)parts.push({x:f.x+rnd(-1,5),y:f.y-rnd(0,12),vx:rnd(-0.4,0.4),vy:rnd(0.3,1.1),life:rnd(8,16),max:16,col:'rgba(255,255,255,0.5)',g:0.06,sz:1});
+  if(isPlayer){
+    for(const c of coins){ if(c.got)continue; if(Math.abs(c.x-f.x)<12&&Math.abs(c.y-(f.y-7))<13){c.got=true;c.dead=true;runCoins+=2;addParts(c.x,c.y,7,'#ffd447',1.6);sfx.coin();} }
+  }
+  if(f.y<=wl.topY+1){                                     // reached the mossy ledge → hop over
+    f.y=wl.topY; f.state='air'; f.wall=null; f.climbV=0;
+    f.vx=runSpeed()*1.0; f.vy=-3.2; f.launch=true; f.squash=1.35; f.boost=22;
+    if(isPlayer){ addParts(f.x,f.y-6,18,'#8ee06a',2.8); addParts(f.x,f.y-6,8,'#c8f79a',2.2); shMag=Math.max(shMag,3); sfx.bounce(); beep(880,0.1,'square',0.4,240); addFloat(f.x,f.y-16,'TOP!','#c8f79a',true); }
+    return;
+  }
+  if(f.y>=wl.baseY+8){                                    // lost grip → peel off & fall
+    f.state='air'; f.wall=null; f.climbV=0; f.vx=-0.8; f.vy=1.7; f.launch=true;
+    if(isPlayer){ addParts(f.x,f.y-6,10,'#ff9a8a',2.2); shMag=Math.max(shMag,2); sfx.whoosh(); addFloat(f.x,f.y-16,'SLIP!','#ff9a8a',true); }
+    return;
+  }
 }
 function showView(id){
   // animated screen switching with exit/enter classes
@@ -2517,6 +2614,8 @@ function grabHook(f,h){
   // also pin the visible tongue tip to the flower/hook position immediately so the tongue "sticks"
   f.tipX = h.x;
   f.tipY = h.y;
+  // record the moment this frog latched on so we can detect long stuck-old-hook situations
+  try{ f.grabTime = performance.now(); }catch(e){}
 
   // shorten the max rope length so hooks feel punchy but less exaggerated
   f.ropeLen = clamp(Math.hypot(dx,dy), 24, 54);
@@ -2625,8 +2724,51 @@ window.addEventListener('keydown', e => {
     if (!menuMode) tryGrab(frog);
   }
   // Roll (Speed Roll) mapped to R
+  // R = Scramble (enquanto escalando) OU Speed Roll (enquanto na rampa)
   else if (code === 'KeyR') {
-    if (!menuMode) doRoll();
+    if (!menuMode) {
+      // Se ainda não está escalando, tenta agarrar uma parede adjacente.
+      // Allow a slightly relaxed vertical tolerance so rapid presses can latch even if the frog is a bit off.
+      try {
+        if (window.frog && window.frog.state !== 'climb') {
+          let latched = false;
+          const F = window.frog;
+          for (const wl of window.walls || []) {
+            // strict test (existing)
+            if (F.x + HALFW >= wl.x && F.x - HALFW < wl.x + wl.w - 2 &&
+                F.y > wl.topY + 8 && F.y < wl.baseY + 26) {
+              startClimb(F, wl);
+              latched = true;
+              break;
+            }
+          }
+          // relaxed attempt: if not latched, try a looser vertical window so mashing R still latches.
+          if (!latched) {
+            for (const wl of window.walls || []) {
+              const dxOk = (F.x + HALFW >= wl.x && F.x - HALFW < wl.x + wl.w - 2);
+              const relaxedVert = (F.y > wl.topY - 28 && F.y < wl.baseY + 40);
+              if (dxOk && relaxedVert) {
+                // nudge the frog into the wall's vertical grab range and latch
+                F.y = clamp(F.y, wl.topY + 10, wl.baseY + 18);
+                startClimb(F, wl);
+                latched = true;
+                break;
+              }
+            }
+          }
+        }
+      } catch (err) { /* ignora erros inesperados */ }
+
+      // If already climbing, each R press should add climbing effort (scramble).
+      if (window.frog && window.frog.state === 'climb') {
+        // Give immediate feedback and stronger upward push on repeated presses.
+        doScramble();
+        try { if (window.frog) window.frog.climbV = Math.min((window.frog.climbV || 0) + 0.9, CLIMB_MAXUP); } catch(e) {}
+      } else {
+        // Not climbing: try Speed Roll (only works on ramp)
+        doRoll();
+      }
+    }
   }
 
   // party power quick keys remain
@@ -2905,6 +3047,18 @@ function restartBar(){const b=document.getElementById('overBar');if(!b)return;b.
 function die(){
   if(gameOver)return;
   if(menuMode){resetRun();return;}
+  // Monitor speed-arc related deaths: if player recently used a speed arc and died quickly, increment counter
+  try{
+    const now = performance.now();
+    if(speedArcMonitor && speedArcMonitor.lastUse && (now - speedArcMonitor.lastUse) <= 2000){
+      speedArcMonitor.deathCount = (speedArcMonitor.deathCount||0) + 1;
+      // if this is the second quick death tied to the same recent speed use, remove speed arcs globally
+      if(speedArcMonitor.deathCount >= 2 && !speedArcMonitor.disabled){
+        speedArcMonitor.disabled = true;
+        removeSpeedArcs();
+      }
+    }
+  }catch(e){}
   gameOver=true; goTimer=0; frog.state='dead';
   // keep the top button hidden when showing the splash/over screen
   const topBtnEl = document.getElementById('topBtn');
@@ -3097,6 +3251,7 @@ function placeRescueRing(deathX){
 
 function stepFrog(f,isPlayer){
   if(f.dead||f.finished)return;
+  if(f.state==='climb'){ stepClimb(f,isPlayer); return; }
   if(isPlayer)tongueCollect(f);
   if(f.lootCd>0)f.lootCd--;
   if(f.lassoT>0)f.lassoT--;
@@ -3122,6 +3277,26 @@ function stepFrog(f,isPlayer){
   if(f.ringCd>0)f.ringCd--;
   if(f.state==='swing'){
     f.swingT++;
+    // If the frog is the player and has been stuck on the same hook / vine for too long, auto-release and start a visible fall
+    // instead of instantly killing the frog. Threshold: 4 seconds (approx 60 ticks * 4).
+    if (f === frog && f.grabTime) {
+      try {
+        const stuckFor = performance.now() - f.grabTime;
+        if (stuckFor > 4000) {
+          // clear stored grab timestamp so this only triggers once per latch event
+          f.grabTime = 0;
+          // release the swing so the frog visibly detaches from the hook/vine
+          try { swingRelease(f); } catch (e) { /* ignore */ }
+          try {
+            // instead of instantly killing the frog, mark a visible forced fall from the tongue
+            // and give a small downward impulse so the player sees the frog drop
+            f.fallFromTongue = true;
+            f.vy = Math.max(f.vy || 0, 1.8);
+          } catch (e) { /* ignore */ }
+          return;
+        }
+      } catch (e) {}
+    }
     if(f.carriage){
       const h=f.carriage;
       f.anchorX=h.x; f.anchorY=h.y;               // hang from the moving carriage
@@ -3209,6 +3384,11 @@ function stepFrog(f,isPlayer){
     }
   }
   if(!landed&&f.state==='run'){f.state='air';f.coyote=6;f.rolling=false;}
+  if(f.state!=='climb'&&walls.length){
+    for(const wl of walls){
+      if(f.x+HALFW>=wl.x&&f.x-HALFW<wl.x+wl.w-2&&f.y>wl.topY+8&&f.y<wl.baseY+26){ startClimb(f,wl); break; }
+    }
+  }
   for(const r of rings){ if(r.used)continue;
     if(f.ringCd<=0&&Math.abs(r.x-f.x)<20&&Math.abs(r.y-(f.y-8))<30){
       launchTo(f,r.target||nextLandingAhead(f),'ring'); f.ringCd=30; f.boost=30;
@@ -3535,6 +3715,7 @@ function maintainWorld(){
   if(mode==='solo'&&soloVariant==='cp'&&!menuMode&&frog.cpX-200<cullX)cullX=frog.cpX-200;
   platforms=platforms.filter(p=>p.x+p.w>cullX);
   hooks=hooks.filter(h=>h.x>cullX-30);
+  walls=walls.filter(w=>w.x+w.w>cullX-30);
   coins=coins.filter(c=>c.x>cullX&&!c.dead);
   rings=rings.filter(r=>r.x>cullX-20);
   hazards=hazards.filter(h=>h.x+h.w>cullX);
@@ -5524,6 +5705,107 @@ function drawVineFlower(cx,cy,ph){
   rect(cx-1,cy-1,2,2,core);
 }
 
+function drawWall(wl){
+  const B=BIOMES[wl.biome];
+  const x=wl.x, w=wl.w;
+  const topY=wl.topY, botY=WATER_Y+10;
+  const H=botY-topY;
+  // tall stone column
+  rect(x,topY,w,H,B.soil);
+  rect(x,topY,3,H,mix(B.soil,'#ffffff',0.16));      // sunlit left edge
+  rect(x+w-4,topY,4,H,B.soilDark);                   // shaded right side
+  rect(x+w-2,topY,2,H,B.soilEdge);
+  // brick courses + a few lit stones
+  for(let i=0,yy=topY+6;yy<botY;yy+=9,i++){
+    rect(x,yy,w,1,B.soilEdge);
+    const off=(i%2)?7:2;
+    for(let bx=x+off;bx<x+w-1;bx+=11)rect(bx,yy-5,1,5,mix(B.soilDark,'#000000',0.22));
+    if(hash1(yy*1.7+x)<0.4)rect(x+off,yy-4,3,3,mix(B.soil,'#ffffff',0.12));
+  }
+  // damp vertical sheen
+  ctx.globalAlpha=0.1;rect(x+1,topY+8,2,H-16,'#ffffff');ctx.globalAlpha=1;
+  // MOSS ON THE TIP — a thick green cap draping over the top face
+  const mCol=mix('#4fae3f',B.platMid,0.3), mLit='#8ee06a', mDk='#2f6e2a';
+  rect(x-2,topY+2,w+4,4,mDk);
+  rect(x-2,topY+1,w+4,3,mCol);
+  rect(x-2,topY,w+4,1,mLit);
+  for(let i=0;i<w+3;i+=3){
+    const hh=hash1((x+i)*2.3+wl.mossPh);
+    const dl=3+hh*8+Math.sin(T*0.03+i*0.5+wl.mossPh)*0.7;
+    rect(x-2+i,topY+5,2,dl,mCol);
+    rect(x-2+i,topY+5+dl-1,2,1,mLit);
+    if(hh<0.3)rect(x-2+i,topY+6,1,dl*0.6,mLit);
+    if(hh>0.84)rect(x-2+i,topY+5+dl,1,1,B.deco2);   // tiny moss flower
+  }
+}
+function drawFrogClimb(f){
+  // Uses the EXACT same pixel art as the standard frog — only the leg animation changes
+  const cs=f.colors||FROG_COLORS[0];
+  const anim=f.climbAnim||0;
+  const cph=Math.sin(anim*0.65);   // climbing rhythm (speeds up with climbV)
+
+  // Front feet alternate HIGH/LOW like stepping up a ladder (0–3 px reach)
+  const reachL=Math.round((1+cph)*1.5);   // left foot high → right grips
+  const reachR=Math.round((1-cph)*1.5);   // opposite phase
+
+  const breath=Math.sin(T*0.07+f.x*0.05)*0.05;
+  const sq=clamp(f.squash+breath,0.72,1.38),sy=sq,sxv=1/Math.sqrt(sq);
+
+  const C={mid:cs.mid,lit:cs.lit,dk:cs.dk,belly:'#e8f2b8',
+    eye:'#2a2f22',ew:'#f4f8e0',tongue:'#e2607f',tdk:'#b0405f',cheek:'#ff9a8a'};
+  const fx=f.x,fyBase=f.y;
+  // Same pixel helper signature as drawFrog's fp
+  const fp=(lx,ly,w,h,c)=>rect(fx+lx*sxv,fyBase-(ly+h)*sy,w*sxv,h*sy,c);
+
+  // Wall-press contact shadow
+  ctx.globalAlpha=0.13; rect(fx+1,fyBase-15,9,15,'#000'); ctx.globalAlpha=1;
+
+  // BACK LEGS — slight sideways kick alternating for grip (same pixel blocks as drawFrog)
+  const kick=Math.round(cph);
+  fp(-6+kick,0,4,2,C.dk); fp(2-kick,0,4,2,C.dk);
+  fp(-6+kick,2,2,2,C.mid); fp(3-kick,2,2,2,C.mid);
+
+  // BODY — pixel-for-pixel identical to drawFrog body section
+  fp(-5,2,10,7,C.mid); fp(-5,7,10,3,C.mid);
+  fp(-5,6,7,3,C.lit); fp(-4,6,5,1,mix(C.lit,'#ffffff',0.5));
+  fp(-4,7,1,1,C.dk); fp(-1,8,1,1,C.dk); fp(2,7,1,1,C.dk);
+  fp(-3,6,1,1,mix(C.lit,'#ffffff',0.35));
+  fp(1,2,4,4,C.dk);
+  fp(-3,2,6,4,C.belly); fp(-3,5,6,1,mix(C.belly,C.dk,0.4)); fp(-4,5,8,1,C.dk);
+
+  // FRONT FEET — climbing reach: left/right alternate UP like rungs on a ladder
+  fp(-6,8+reachL,5,5,C.dk); fp(1,8+reachR,5,5,C.dk);
+  fp(-5,8+reachL,4,4,C.mid); fp(2,8+reachR,4,4,C.mid);
+  // webbed toe tips (same as standard)
+  fp(-6,8+reachL,1,1,C.lit); fp(-4,8+reachL,1,1,C.lit); fp(-2,8+reachL,1,1,C.lit);
+  fp(2,8+reachR,1,1,C.lit);  fp(4,8+reachR,1,1,C.lit);  fp(6,8+reachR,1,1,C.lit);
+
+  // HEAD — full quality identical to standard frog; pupils shifted UP toward the ledge
+  fp(-5,9,4,4,'#f4f8e0'); fp(2,9,4,4,'#f4f8e0');
+  fp(-5,8,4,1,mix(C.lit,'#ffffff',0.5)); fp(2,8,4,1,mix(C.lit,'#ffffff',0.5));
+  fp(-4,10,3,3,C.eye); fp(3,10,3,3,C.eye);        // pupils looking up
+  fp(-4,12,1,1,'#ffffff'); fp(4,12,1,1,'#ffffff'); // eye shine
+  fp(-3,10,1,1,'rgba(255,255,255,0.55)'); fp(5,10,1,1,'rgba(255,255,255,0.55)');
+  fp(4,7,1,1,C.dk);
+  fp(-1,4,5,1,C.dk); fp(-2,5,1,1,C.dk); fp(4,5,1,1,C.dk);
+  fp(-4,4,1,1,C.cheek); fp(3,4,1,1,C.cheek);      // effort blush
+  fp(-3,11,3,1,mix(C.lit,'#ffffff',0.4));
+
+  // COSMETICS — same as standard frog
+  const _eq=f.cosmetics;
+  if(_eq){
+    if(_eq.outfit&&COSDRAW[_eq.outfit])COSDRAW[_eq.outfit](fp,C);
+    if(_eq.face&&COSDRAW[_eq.face])COSDRAW[_eq.face](fp,C);
+    if(_eq.hat&&COSDRAW[_eq.hat])COSDRAW[_eq.hat](fp,C);
+  }
+
+  // SCRAMBLE FLASH — brief blue glow confirming each button press
+  if(f.scrambleFlash>0){
+    ctx.globalAlpha=0.28*(f.scrambleFlash/7);
+    rect(fx-8,fyBase-18,17,18,'#bfe8ff');
+    ctx.globalAlpha=1;
+  }
+}
 function drawCoin(c){
   if(c.got)return;
   const wob=Math.abs(Math.sin(T*0.06+c.ph));
@@ -5629,6 +5911,7 @@ function drawFrogRolling(f){
 }
 function drawFrog(f,noRoll){
   if(f.state==='dead')return;
+  if(f.state==='climb'&&!noRoll){drawFrogClimb(f);return;}
   if(f.onRamp&&!noRoll){drawFrogRolling(f);return;}
   const cs=f.colors||FROG_COLORS[0];
   // gentle breathing so the frog always feels alive
@@ -5851,6 +6134,8 @@ function draw(){
   }
   // hooks behind platforms slightly (seaweed drawn later, over the water)
   for(const h of hooks)if(!h.weed)drawHook(h);
+  // tall mossy walls — the stone face behind the top ledge platform
+  for(const wl of walls)drawWall(wl);
   // platforms (submerged stones drawn after water so they read underwater)
   for(const p of platforms){ if(p.type==='sub'||p.type==='subfloor')continue; drawPlatform(p); }
   // water (drawn over platform bodies that extend down, in front)
@@ -5871,6 +6156,32 @@ function draw(){
   if(rivals.length&&!menuMode)for(const r of rivals)drawFrog(r);
   drawFrog(frog);
   if(rivals.length&&!menuMode){ for(const r of rivals)drawNameTag(r); drawNameTag(frog); }
+  // SCRAMBLE climb meter — shows progress up the wall + a MASH! prompt; turns red if slipping
+  if(frog.state==='climb'&&frog.wall){
+    const wl=frog.wall;
+    const prog=clamp((wl.baseY-frog.y)/(wl.baseY-wl.topY),0,1);
+    const gx=(frog.x-wcX)*ZOOM, gy=(frog.y-24-wcY)*ZOOM;
+    const bw=30, bh=6;
+    const slip=(frog.climbV||0)<0;
+    ctx.save();
+    ctx.fillStyle='rgba(8,16,20,0.72)';roundRectPath(gx-bw/2-1,gy-1,bw+2,bh+2,(bh+2)/2);ctx.fill();
+    ctx.fillStyle=slip?'#ff6a4d':'#3a5ec0';
+    roundRectPath(gx-bw/2,gy,bw,bh,bh/2);ctx.fill();
+    ctx.fillStyle=slip?'#ffb0a0':'#9ab4ff';
+    roundRectPath(gx-bw/2,gy,Math.max(4,prog*bw),bh,bh/2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.fillRect(gx-bw/2+prog*bw-1,gy,2,bh);
+    // pulsing MASH! prompt
+    const pmp=0.5+0.5*Math.sin(T*0.4);
+    ctx.globalAlpha=slip?1:(0.55+0.45*pmp);
+    ctx.font='900 '+Math.round(clamp(cssW*0.03,10,14))+'px Trebuchet MS';
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    const msg=slip?'DON\u2019T FALL!':'MASH!';
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillText(msg,gx+1,gy-3);
+    ctx.fillStyle=slip?'#ff7a5f':'#c8d8ff';ctx.fillText(msg,gx,gy-4);
+    ctx.restore();
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  }
   // particles
   for(const p of parts){ctx.globalAlpha=clamp(p.life/p.max,0,1);rect(p.x,p.y,p.sz,p.sz,p.col);}
   ctx.globalAlpha=1;
@@ -6030,8 +6341,9 @@ let _btnState='';
 const actBtnEl=document.getElementById('actBtn');
 function updateActBtn(){
   let s;
+  if(frog.state==='climb') s='scramble';
   // On touch devices while swinging, show "LET GO" so mobile players can release; on desktop keep "GRAB" for chaining.
-  if(frog.state==='swing') s = (typeof touchMode !== 'undefined' && touchMode) ? 'letgo' : 'grab';
+  else if(frog.state==='swing') s = (typeof touchMode !== 'undefined' && touchMode) ? 'letgo' : 'grab';
   else if(frog.onRamp) s='roll';
   else if(grabAvail&&grabIsBug) s='chomp';
   else if(grabAvail) s='grab';
@@ -6039,8 +6351,9 @@ function updateActBtn(){
   const key = s + (s==='roll' && frog.rolling ? '!' : '');
   if(key===_btnState) return;
   _btnState = key;
-  actBtnEl.classList.remove('act-jump','act-grab','act-letgo','act-chomp','act-roll');
-  if(s==='letgo'){ actBtnEl.classList.add('act-letgo'); actBtnEl.textContent='LET GO'; }
+  actBtnEl.classList.remove('act-jump','act-grab','act-letgo','act-chomp','act-roll','act-scramble');
+  if(s==='scramble'){ actBtnEl.classList.add('act-scramble'); actBtnEl.textContent='SCRAMBLE'; }
+  else if(s==='letgo'){ actBtnEl.classList.add('act-letgo'); actBtnEl.textContent='LET GO'; }
   else if(s==='roll'){
     actBtnEl.classList.add('act-roll');
     // on touch/mobile show "SPEED ROLL", on desktop keep "ROLL"
