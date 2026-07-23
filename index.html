@@ -2730,10 +2730,10 @@ window.addEventListener('keydown', e => {
       // Se ainda não está escalando, tenta agarrar uma parede adjacente.
       // Allow a slightly relaxed vertical tolerance so rapid presses can latch even if the frog is a bit off.
       try {
-        if (window.frog && window.frog.state !== 'climb') {
+        if (frog && frog.state !== 'climb') {
           let latched = false;
-          const F = window.frog;
-          for (const wl of window.walls || []) {
+          const F = frog;
+          for (const wl of walls || []) {
             // strict test (existing)
             if (F.x + HALFW >= wl.x && F.x - HALFW < wl.x + wl.w - 2 &&
                 F.y > wl.topY + 8 && F.y < wl.baseY + 26) {
@@ -2744,7 +2744,7 @@ window.addEventListener('keydown', e => {
           }
           // relaxed attempt: if not latched, try a looser vertical window so mashing R still latches.
           if (!latched) {
-            for (const wl of window.walls || []) {
+            for (const wl of walls || []) {
               const dxOk = (F.x + HALFW >= wl.x && F.x - HALFW < wl.x + wl.w - 2);
               const relaxedVert = (F.y > wl.topY - 28 && F.y < wl.baseY + 40);
               if (dxOk && relaxedVert) {
@@ -2760,10 +2760,10 @@ window.addEventListener('keydown', e => {
       } catch (err) { /* ignora erros inesperados */ }
 
       // If already climbing, each R press should add climbing effort (scramble).
-      if (window.frog && window.frog.state === 'climb') {
+      if (frog && frog.state === 'climb') {
         // Give immediate feedback and stronger upward push on repeated presses.
         doScramble();
-        try { if (window.frog) window.frog.climbV = Math.min((window.frog.climbV || 0) + 0.9, CLIMB_MAXUP); } catch(e) {}
+        try { if (frog) frog.climbV = Math.min((frog.climbV || 0) + 0.9, CLIMB_MAXUP); } catch(e) {}
       } else {
         // Not climbing: try Speed Roll (only works on ramp)
         doRoll();
@@ -2964,17 +2964,17 @@ cv.addEventListener('mousedown',e=>{initAudio();if(!started)start();});
      // Space item (Jump / Let Go)
      const spaceAct = kb.querySelector('.kbd.space') ? kb.querySelector('.kbd.space').nextElementSibling : null;
      if(spaceAct){
-       if(window.frog && (window.frog.tongue || window.frog.state==='swing' || window.frog.tongue>0)) spaceAct.textContent = 'LET GO';
+       if(frog && (frog.tongue || frog.state==='swing' || frog.tongue>0)) spaceAct.textContent = 'LET GO';
        else spaceAct.textContent = 'Jump';
      }
      // E item (Grab / Chomp)
      const eAct = kb.querySelector('.kbd.e') ? kb.querySelector('.kbd.e').nextElementSibling : null;
      if(eAct){
        // if a bug grab was just detected, keep CHOMP visible for a short grace period
-       if(window.grabIsBug || now < kbChompUntil){
+       if(grabIsBug || now < kbChompUntil){
          eAct.textContent = 'CHOMP';
          // extend a small debounce window if grabIsBug currently true
-         if(window.grabIsBug) kbChompUntil = now + 2600;
+         if(grabIsBug) kbChompUntil = now + 2600;
        } else {
          eAct.textContent = 'Grab';
        }
